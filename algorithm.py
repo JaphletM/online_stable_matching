@@ -62,4 +62,12 @@ for baby in babies:
                 # Stop looking at other daycares
                 break
 
-print(allocation)
+unmatched_babies = [
+    baby for baby in allocation
+    if allocation[baby] is None
+]
+
+print("Allocation:", allocation)
+print("Unmatched babies:", unmatched_babies)
+print("Number of unmatched babies:", len(unmatched_babies))
+
