@@ -118,6 +118,10 @@ def run_algorithm(algorithm, babies, daycares, print_results=True):
     total_daycare_utility = 0.0
     unmatched_babies = 0
 
+    #rank_counts[0] = number of babies who got their 1st choice,
+    #rank_counts[1] = number who got their 2nd choice, etc.
+    rank_counts = [0] * len(daycares)
+
     for baby in babies:
 
         daycare_id = algorithm.match_baby(baby)
@@ -133,14 +137,36 @@ def run_algorithm(algorithm, babies, daycares, print_results=True):
         total_baby_utility += baby.utilities[daycare_id]
         total_daycare_utility += daycare.utilities[baby.id]
 
-  
+        rank = baby.preferences.index(daycare_id) + 1
+        rank_counts[rank - 1] += 1
 
-    if len(babies) > 0:
-        average_baby_utility = total_baby_utility / len(babies)
-        average_daycare_utility = total_daycare_utility / (len(babies))
+    n_babies = len(babies)
+    n_matched = n_babies - unmatched_babies
+
+    #Averages over ALL babies (unmatched babies count as 0)
+    if n_babies > 0:
+        average_baby_utility = total_baby_utility / n_babies
+        average_daycare_utility = total_daycare_utility / n_babies
     else:
         average_baby_utility = 0
         average_daycare_utility = 0
+
+    #Averages over MATCHED babies only (quality of the matches)
+    if n_matched > 0:
+        average_baby_utility_matched = total_baby_utility / n_matched
+        average_daycare_utility_matched = total_daycare_utility / n_matched
+        average_rank = sum(
+            (r + 1) * count for r, count in enumerate(rank_counts)
+        ) / n_matched
+        share_first_choice = rank_counts[0] / n_matched
+    else:
+        average_baby_utility_matched = 0
+        average_daycare_utility_matched = 0
+        average_rank = 0
+        share_first_choice = 0
+
+    #Seats still free at the end
+    empty_seats = sum(daycare.remaining_capacity for daycare in daycares)
 
     blocking_pairs = count_blocking_pairs(babies, daycares, assignments)
 
@@ -148,19 +174,30 @@ def run_algorithm(algorithm, babies, daycares, print_results=True):
         "total_baby_utility": total_baby_utility,
         "total_daycare_utility": total_daycare_utility,
         "unmatched_babies": unmatched_babies,
-        "blocking_pairs": blocking_pairs,
+        "empty_seats": empty_seats,
         "average_baby_utility": average_baby_utility,
         "average_daycare_utility": average_daycare_utility,
+        "average_baby_utility_matched": average_baby_utility_matched,
+        "average_daycare_utility_matched": average_daycare_utility_matched,
+        "average_rank": average_rank,
+        "share_first_choice": share_first_choice,
+        "rank_counts": rank_counts,
+        "blocking_pairs": blocking_pairs,
         "Algorithm score": average_daycare_utility + average_baby_utility
     }
 
     if print_results:
         print("================================")
-        print(f"Total unmatched babies: {unmatched_babies}" )
-        print(f"Average baby utility: {average_baby_utility}" )
-        print(f"Average daycare utility: {average_daycare_utility}" )
-        print(f"Algorithm score {average_baby_utility + average_daycare_utility}")
+        print(f"Total unmatched babies: {unmatched_babies}")
+        print(f"Empty seats: {empty_seats}")
+        print(f"Average baby utility: {average_baby_utility:.4f}")
+        print(f"Average daycare utility: {average_daycare_utility:.4f}")
+        print(f"Average baby utility (matched only): {average_baby_utility_matched:.4f}")
+        print(f"Average daycare utility (matched only): {average_daycare_utility_matched:.4f}")
+        print(f"Average rank received: {average_rank:.2f}")
+        print(f"Share with 1st choice: {share_first_choice:.1%}")
+        print(f"Babies per rank (1st, 2nd, ...): {rank_counts}")
         print(f"Blocking pairs: {blocking_pairs}")
-
+        print(f"Algorithm score {average_baby_utility + average_daycare_utility:.4f}")
 
     return results, assignments
