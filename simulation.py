@@ -1,10 +1,11 @@
 from daycare import Daycare
 from baby import Baby
+import numpy as np
 
 #Randomly generate an (x, y) coordinate, normally distributed around the origin
 def generate_location(rng, std=1.0):
-    x = rng.normal(loc=0.0, scale=std, size=1)
-    y = rng.normal(loc=0.0, scale=std, size=1)
+    x = rng.normal(loc=0.0, scale=std)
+    y = rng.normal(loc=0.0, scale=std)
     
     x = min(std*3, max(-std*3, x))
     y = min(std*3, max(-std*3, y))
@@ -85,6 +86,29 @@ def reset_daycares(daycares):
     for daycare in daycares:
         daycare.reset()
 
+#Count blocking pairs (stability, Gale-Shapley). A pair (baby, daycare) is
+#blocking if the baby prefers this daycare over her own assignment, and the
+#daycare has a free seat or prefers this baby over its least liked baby.
+def count_blocking_pairs(babies, daycares, assignments):
+    n_matched = {dc.id: 0 for dc in daycares}
+    min_v = {dc.id: np.inf for dc in daycares}
+    for baby, j in zip(babies, assignments):
+        if j is not None:
+            n_matched[j] += 1
+            min_v[j] = min(min_v[j], daycares[j].utilities[baby.id])
+
+    count = 0
+    for baby, j_own in zip(babies, assignments):
+        u_own = baby.utilities[j_own] if j_own is not None else -np.inf
+        for dc in daycares:
+            if dc.id == j_own or baby.utilities[dc.id] <= u_own:
+                continue
+            has_room = n_matched[dc.id] < dc.capacity
+            prefers_baby = dc.utilities[baby.id] > min_v[dc.id]
+            if has_room or prefers_baby:
+                count += 1
+    return count
+
 #Run a specific algorithm and output assignment results
 def run_algorithm(algorithm, babies, daycares, print_results=True):
 
@@ -118,10 +142,13 @@ def run_algorithm(algorithm, babies, daycares, print_results=True):
         average_baby_utility = 0
         average_daycare_utility = 0
 
+    blocking_pairs = count_blocking_pairs(babies, daycares, assignments)
+
     results = {
         "total_baby_utility": total_baby_utility,
         "total_daycare_utility": total_daycare_utility,
         "unmatched_babies": unmatched_babies,
+        "blocking_pairs": blocking_pairs,
         "average_baby_utility": average_baby_utility,
         "average_daycare_utility": average_daycare_utility,
         "Algorithm score": average_daycare_utility + average_baby_utility
@@ -133,6 +160,7 @@ def run_algorithm(algorithm, babies, daycares, print_results=True):
         print(f"Average baby utility: {average_baby_utility}" )
         print(f"Average daycare utility: {average_daycare_utility}" )
         print(f"Algorithm score {average_baby_utility + average_daycare_utility}")
+        print(f"Blocking pairs: {blocking_pairs}")
 
 
     return results, assignments
